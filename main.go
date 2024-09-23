@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,18 +73,31 @@ func main() {
 		go func(header string) {
 			defer wg.Done()
 
-			response, err := makeRequest(*urlPtr, header, *proxyPtr)
-			if err != nil {
-				return
-			}
+			backoff := 1 // Initial backoff multiplier
 
-			result := Result{
-				URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
-				Header:        header,
-				StatusCode:    response.StatusCode,
-				ContentLength: response.ContentLength,
+			for {
+				response, err := makeRequest(*urlPtr, header, *proxyPtr)
+				if err != nil {
+					return
+				}
+
+				result := Result{
+					URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
+					Header:        header,
+					StatusCode:    response.StatusCode,
+					ContentLength: response.ContentLength,
+				}
+				results <- result
+
+				// Handle 429 Too Many Requests by applying exponential backoff
+				if response.StatusCode == 429 {
+					backoff = applyBackoff(response, backoff)
+				} else {
+					// Reset backoff once we stop getting 429
+					backoff = 1
+					break
+				}
 			}
-			results <- result
 
 			// Add delay if the delay flag is set
 			if *delayPtr > 0 {
@@ -175,6 +189,20 @@ func generateCacheBuster() string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func applyBackoff(response *http.Response, backoff int) int {
+	retryAfter := response.Header.Get("Retry-After")
+	if retryAfter != "" {
+		if retrySecs, err := strconv.Atoi(retryAfter); err == nil {
+			time.Sleep(time.Duration(retrySecs) * time.Second)
+			return backoff
+		}
+	}
+
+	// Exponential backoff if Retry-After is not specified
+	time.Sleep(time.Duration(backoff) * time.Second)
+	return backoff * 2 // Double the backoff time for the next request
 }
 
 func printResults(results <-chan Result, foundOnly bool) {
