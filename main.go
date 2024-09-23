@@ -28,19 +28,21 @@ func main() {
 	urlPtr := flag.String("url", "", "URL to make requests to")
 	headersFilePtr := flag.String("headers", "", "File containing headers for requests")
 	proxyPtr := flag.String("proxy", "", "Proxy server IP:PORT (e.g., 127.0.0.1:8080)")
+	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")
+	foundOnlyPtr := flag.Bool("found", false, "Print only headers with status code 200")
 	quietPtr := flag.Bool("q", false, "Suppress banner")
 	flag.Parse()
 	log.SetFlags(0)
-	    // Print tool banner
-
-    if !*quietPtr {
-    log.Print(`
+	
+	// Print tool banner
+	if !*quietPtr {
+		log.Print(`
 
 
 	   __               __                      
 	  / /  ___ ___  ___/ /__ _______ _    _____ 
 	 / _ \/ -_) _ \/ _  / -_) __/ _ \ |/|/ / _ \
-	/_//_/\__/\_,_/\_,_/\__/_/ / .__/__,__/_//_/
+	/_//_/\__/\_,_/\_,_/\__/_/ .__/__,__/_//_/
 	                          /_/               
     
 `)
@@ -82,6 +84,11 @@ func main() {
 				ContentLength: response.ContentLength,
 			}
 			results <- result
+
+			// Add delay if the delay flag is set
+			if *delayPtr > 0 {
+				time.Sleep(time.Duration(*delayPtr) * time.Second)
+			}
 		}(header)
 	}
 
@@ -90,7 +97,7 @@ func main() {
 		close(results)
 	}()
 
-	printResults(results)
+	printResults(results, *foundOnlyPtr)
 }
 
 func readHeadersFromFile(filename string) ([]string, error) {
@@ -170,7 +177,7 @@ func generateCacheBuster() string {
 	return string(b)
 }
 
-func printResults(results <-chan Result) {
+func printResults(results <-chan Result, foundOnly bool) {
 	red := color.New(color.FgRed).SprintFunc()
 	green := color.New(color.FgGreen).SprintFunc()
 	magenta := color.New(color.FgMagenta).SprintFunc()
@@ -178,6 +185,11 @@ func printResults(results <-chan Result) {
 	cyan := color.New(color.FgCyan).SprintFunc()
 
 	for result := range results {
+		// Only print results with status code 200 if the -found flag is set
+		if foundOnly && result.StatusCode != 200 {
+			continue
+		}
+
 		statusColorFunc := red
 		if result.StatusCode == 200 {
 			statusColorFunc = green
