@@ -31,8 +31,6 @@ Accesskey: foobar
 Access-Token: foobar
 Action: foobar
 Admin: foobar
-Age: foobar
-Ajax: foobar
 Akamai-Origin-Hop: foobar
 Allow: foobar
 App: foobar
@@ -69,10 +67,8 @@ Bae-Env-Ak: foobar
 Bae-Env-Appid: foobar
 Bae-Env-Sk: foobar
 Bae-Logid: foobar
-Bar: foobar
 Base: foobar
 Base-Url: foobar
-Basic: foobar
 Bearer-Indication: foobar
 Body-Maxlength: foobar
 Body-Truncated: foobar
@@ -95,12 +91,7 @@ Cert-Server-Subject: foobar
 Cert-Subject: foobar
 Cf-Connecting-Ip: foobar
 Cf-Ipcountry: foobar
-Cf-Template-Path: foobar
-Cf-Visitor: foobar
-Ch: foobar
 Challenge-Response: foobar
-Charset: foobar
-Chunk-Size: foobar
 Client: foobar
 Clientaddress: foobar
 Client-Address: foobar
@@ -139,7 +130,6 @@ Cloudinary-Name: foobar
 Cloudinary-Public-Id: foobar
 Cloudinaryurl: foobar
 Cloudinary-Version: foobar
-Code: foobar
 Coming-From: foobar
 Compress: foobar
 Conflict: foobar
@@ -177,7 +167,6 @@ Curl-Multithreaded: foobar
 Custom-Header: foobar
 Custom-Secret-Header: foobar
 Dataserviceversion: foobar
-Date: foobar
 Debug: foobar
 Deflate-Level-Def: foobar
 Deflate-Level-Max: foobar
