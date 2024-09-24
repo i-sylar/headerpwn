@@ -65,24 +65,30 @@ func main() {
 		return
 	}
 
-	var wg sync.WaitGroup
 	results := make(chan Result)
+	var wg sync.WaitGroup
 
 	// Log the value of no-concurrent flag to debug if it's initialized properly
 	log.Println("No Concurrent Flag:", *noConcurrentPtr)
 
 	if *noConcurrentPtr {
 		// Sequential requests (one at a time)
+		log.Println("Running in non-concurrent mode")
 		for _, header := range headers {
 			wg.Add(1)
-			go func(header string) {
+			func(header string) {
 				defer wg.Done()
 
+				log.Println("Making request for header:", header)
+
+				// Make the request and pass the delay
 				response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
 				if err != nil {
+					log.Println("Request failed for header:", header, "Error:", err)
 					return
 				}
 
+				// Create the result and send it to the channel
 				result := Result{
 					URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
 					Header:        header,
@@ -90,20 +96,26 @@ func main() {
 					ContentLength: response.ContentLength,
 				}
 				results <- result
+
 			}(header)
-			
+
 			// Wait for this request to finish before sending the next one
 			wg.Wait()
 		}
+		close(results)
 	} else {
 		// Concurrent requests (default behavior)
+		log.Println("Running in concurrent mode")
 		for _, header := range headers {
 			wg.Add(1)
 			go func(header string) {
 				defer wg.Done()
 
+				log.Println("Making request for header:", header)
+
 				response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
 				if err != nil {
+					log.Println("Request failed for header:", header, "Error:", err)
 					return
 				}
 
@@ -117,7 +129,6 @@ func main() {
 			}(header)
 		}
 
-		// Close the results channel after all requests are done
 		go func() {
 			wg.Wait()
 			close(results)
