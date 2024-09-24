@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,11 +30,11 @@ func main() {
 	proxyPtr := flag.String("proxy", "", "Proxy server IP:PORT (e.g., 127.0.0.1:8080)")
 	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")  // New delay flag
 	foundOnlyPtr := flag.Bool("found", false, "Print only headers with status code 200")
-	noConcurrentPtr := flag.Bool("no-concurrent", false, "Disable concurrent requests, send one request at a time") // Correctly added the flag here
+	noConcurrentPtr := flag.Bool("no-concurrent", false, "Disable concurrent requests, send one request at a time") // Added flag
 	quietPtr := flag.Bool("q", false, "Suppress banner")
 	flag.Parse()
 	log.SetFlags(0)
-	
+
 	// Print tool banner
 	if !*quietPtr {
 		log.Print(`
@@ -68,6 +67,9 @@ func main() {
 
 	var wg sync.WaitGroup
 	results := make(chan Result)
+
+	// Log the value of no-concurrent flag to debug if it's initialized properly
+	log.Println("No Concurrent Flag:", *noConcurrentPtr)
 
 	if *noConcurrentPtr {
 		// Sequential requests (one at a time)
@@ -212,20 +214,6 @@ func generateCacheBuster() string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
-}
-
-func applyBackoff(response *http.Response, backoff int) int {
-	retryAfter := response.Header.Get("Retry-After")
-	if retryAfter != "" {
-		if retrySecs, err := strconv.Atoi(retryAfter); err == nil {
-			time.Sleep(time.Duration(retrySecs) * time.Second)
-			return backoff
-		}
-	}
-
-	// Exponential backoff if Retry-After is not specified
-	time.Sleep(time.Duration(backoff) * time.Second)
-	return backoff * 2 // Double the backoff time for the next request
 }
 
 func printResults(results <-chan Result, foundOnly bool) {
