@@ -31,6 +31,7 @@ func main() {
 	proxyPtr := flag.String("proxy", "", "Proxy server IP:PORT (e.g., 127.0.0.1:8080)")
 	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")  // New delay flag
 	foundOnlyPtr := flag.Bool("found", false, "Print only headers with status code 200")
+	noConcurrentPtr := flag.Bool("no-concurrent", false, "Disable concurrent requests, send one request at a time")
 	quietPtr := flag.Bool("q", false, "Suppress banner")
 	flag.Parse()
 	log.SetFlags(0)
@@ -68,31 +69,58 @@ func main() {
 	var wg sync.WaitGroup
 	results := make(chan Result)
 
-	for _, header := range headers {
-		wg.Add(1)
-		go func(header string) {
-			defer wg.Done()
+	if *noConcurrentPtr {
+		// Sequential requests (one at a time)
+		for _, header := range headers {
+			wg.Add(1)
+			go func(header string) {
+				defer wg.Done()
 
-			// Pass the delay to the makeRequest function
-			response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
-			if err != nil {
-				return
-			}
+				response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
+				if err != nil {
+					return
+				}
 
-			result := Result{
-				URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
-				Header:        header,
-				StatusCode:    response.StatusCode,
-				ContentLength: response.ContentLength,
-			}
-			results <- result
-		}(header)
+				result := Result{
+					URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
+					Header:        header,
+					StatusCode:    response.StatusCode,
+					ContentLength: response.ContentLength,
+				}
+				results <- result
+			}(header)
+			
+			// Wait for this request to finish before sending the next one
+			wg.Wait()
+		}
+	} else {
+		// Concurrent requests (default behavior)
+		for _, header := range headers {
+			wg.Add(1)
+			go func(header string) {
+				defer wg.Done()
+
+				response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
+				if err != nil {
+					return
+				}
+
+				result := Result{
+					URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
+					Header:        header,
+					StatusCode:    response.StatusCode,
+					ContentLength: response.ContentLength,
+				}
+				results <- result
+			}(header)
+		}
+
+		// Close the results channel after all requests are done
+		go func() {
+			wg.Wait()
+			close(results)
+		}()
 	}
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
 
 	printResults(results, *foundOnlyPtr)
 }
