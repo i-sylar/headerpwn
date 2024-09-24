@@ -31,7 +31,7 @@ func main() {
 	proxyPtr := flag.String("proxy", "", "Proxy server IP:PORT (e.g., 127.0.0.1:8080)")
 	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")  // New delay flag
 	foundOnlyPtr := flag.Bool("found", false, "Print only headers with status code 200")
-	noConcurrentPtr := flag.Bool("no-concurrent", false, "Disable concurrent requests, send one request at a time")
+	noConcurrentPtr := flag.Bool("no-concurrent", false, "Disable concurrent requests, send one request at a time") // Correctly added the flag here
 	quietPtr := flag.Bool("q", false, "Suppress banner")
 	flag.Parse()
 	log.SetFlags(0)
