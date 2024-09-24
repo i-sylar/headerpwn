@@ -29,7 +29,7 @@ func main() {
 	urlPtr := flag.String("url", "", "URL to make requests to")
 	headersFilePtr := flag.String("headers", "", "File containing headers for requests")
 	proxyPtr := flag.String("proxy", "", "Proxy server IP:PORT (e.g., 127.0.0.1:8080)")
-	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")
+	delayPtr := flag.Int("delay", 0, "Delay in seconds between requests")  // New delay flag
 	foundOnlyPtr := flag.Bool("found", false, "Print only headers with status code 200")
 	quietPtr := flag.Bool("q", false, "Suppress banner")
 	flag.Parse()
@@ -73,36 +73,19 @@ func main() {
 		go func(header string) {
 			defer wg.Done()
 
-			backoff := 1 // Initial backoff multiplier
-
-			for {
-				response, err := makeRequest(*urlPtr, header, *proxyPtr)
-				if err != nil {
-					return
-				}
-
-				result := Result{
-					URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
-					Header:        header,
-					StatusCode:    response.StatusCode,
-					ContentLength: response.ContentLength,
-				}
-				results <- result
-
-				// Handle 429 Too Many Requests by applying exponential backoff
-				if response.StatusCode == 429 {
-					backoff = applyBackoff(response, backoff)
-				} else {
-					// Reset backoff once we stop getting 429
-					backoff = 1
-					break
-				}
+			// Pass the delay to the makeRequest function
+			response, err := makeRequest(*urlPtr, header, *proxyPtr, *delayPtr)
+			if err != nil {
+				return
 			}
 
-			// Add delay if the delay flag is set
-			if *delayPtr > 0 {
-				time.Sleep(time.Duration(*delayPtr) * time.Second)
+			result := Result{
+				URL:           *urlPtr + "?cachebuster=" + generateCacheBuster(),
+				Header:        header,
+				StatusCode:    response.StatusCode,
+				ContentLength: response.ContentLength,
 			}
+			results <- result
 		}(header)
 	}
 
@@ -134,15 +117,22 @@ func readHeadersFromFile(filename string) ([]string, error) {
 	return headers, nil
 }
 
-func makeRequest(baseURL, header, proxy string) (*http.Response, error) {
-	urlWithBuster := baseURL + "?cachebuster=" + generateCacheBuster()
-	headers := parseHeaders(header)
+func makeRequest(baseURL, header, proxy string, delay int) (*http.Response, error) {
+	// Apply delay before making the request
+	if delay > 0 {
+		time.Sleep(time.Duration(delay) * time.Second)
+	}
 
+	urlWithBuster := baseURL + "?cachebuster=" + generateCacheBuster()  // Adds a cachebuster query parameter
+	headers := parseHeaders(header)  // Parses the headers into a slice of strings
+
+	// Create a new HTTP GET request
 	req, err := http.NewRequest("GET", urlWithBuster, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	// Add the parsed headers to the request
 	for _, h := range headers {
 		parts := strings.SplitN(h, ": ", 2)
 		if len(parts) == 2 {
@@ -150,8 +140,10 @@ func makeRequest(baseURL, header, proxy string) (*http.Response, error) {
 		}
 	}
 
+	// Create an HTTP client
 	client := &http.Client{}
 	if proxy != "" {
+		// If a proxy is provided, configure the client to use it
 		proxyURL, err := url.Parse("http://" + proxy)
 		if err != nil {
 			fmt.Println("Error parsing proxy URL:", err)
@@ -161,15 +153,18 @@ func makeRequest(baseURL, header, proxy string) (*http.Response, error) {
 		client = &http.Client{Transport: transport}
 	}
 
+	// Send the HTTP request and return the response
 	response, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
+	// Check if the content length is available, read body if necessary
 	if response.ContentLength >= 0 {
 		return response, nil
 	}
 
+	// If ContentLength is not provided, read the response body to calculate it
 	body, err := io.ReadAll(response.Body)
 	if err == nil {
 		response.ContentLength = int64(len(body))
