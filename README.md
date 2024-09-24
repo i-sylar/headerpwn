@@ -32,6 +32,8 @@ headerpwn allows you to test various headers on a target URL and analyze the res
 Example usage:
 ```sh
 headerpwn -url https://example.com -headers my_headers.txt
+headerpwn -url https://example.com -headers my_headers.txt -delay (apply delay between requests. Still working on this)
+headerpwn -url https://example.com -headers my_headers.txt -found (print only the status 200 codes)
 ```
 
 - Format of `my_headers.txt` should be like below:
